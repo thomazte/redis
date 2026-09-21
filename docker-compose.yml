@@ -1,0 +1,161 @@
+# Laboratório Redis: replicação master/réplica + Sentinel (failover automático).
+# Não é Redis Cluster (sharding). É replicação com alta disponibilidade.
+
+networks:
+  redelocal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.56.0/24
+
+volumes:
+  redis-master-data:
+  redis-replica-data:
+
+x-redis-image: &redis-image "redis:7.4"
+
+services:
+  redis-master:
+    image: *redis-image
+    container_name: redis-master
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - ./conf/master.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-master-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      redelocal:
+        ipv4_address: 172.28.56.10
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  redis-replica:
+    image: *redis-image
+    container_name: redis-replica
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - ./conf/replica.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-replica-data:/data
+    ports:
+      - "6380:6379"
+    networks:
+      redelocal:
+        ipv4_address: 172.28.56.20
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  sentinel-1:
+    image: *redis-image
+    container_name: redis-sentinel-1
+    entrypoint: ["/bin/sh", "/sentinel-entrypoint.sh"]
+    environment:
+      ANNOUNCE_IP: sentinel-1
+    volumes:
+      - ./conf/sentinel.conf:/sentinel-base.conf:ro
+      - ./conf/sentinel-entrypoint.sh:/sentinel-entrypoint.sh:ro
+    ports:
+      - "26379:26379"
+    networks:
+      redelocal:
+        ipv4_address: 172.28.56.31
+    depends_on:
+      redis-master:
+        condition: service_healthy
+      redis-replica:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  sentinel-2:
+    image: *redis-image
+    container_name: redis-sentinel-2
+    entrypoint: ["/bin/sh", "/sentinel-entrypoint.sh"]
+    environment:
+      ANNOUNCE_IP: sentinel-2
+    volumes:
+      - ./conf/sentinel.conf:/sentinel-base.conf:ro
+      - ./conf/sentinel-entrypoint.sh:/sentinel-entrypoint.sh:ro
+    ports:
+      - "26380:26379"
+    networks:
+      redelocal:
+        ipv4_address: 172.28.56.32
+    depends_on:
+      redis-master:
+        condition: service_healthy
+      redis-replica:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  sentinel-3:
+    image: *redis-image
+    container_name: redis-sentinel-3
+    entrypoint: ["/bin/sh", "/sentinel-entrypoint.sh"]
+    environment:
+      ANNOUNCE_IP: sentinel-3
+    volumes:
+      - ./conf/sentinel.conf:/sentinel-base.conf:ro
+      - ./conf/sentinel-entrypoint.sh:/sentinel-entrypoint.sh:ro
+    ports:
+      - "26381:26379"
+    networks:
+      redelocal:
+        ipv4_address: 172.28.56.33
+    depends_on:
+      redis-master:
+        condition: service_healthy
+      redis-replica:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # Cliente na mesma rede Docker; a demo usa nomes DNS (redis-master, sentinel-1, ...).
+  redis-cli:
+    image: *redis-image
+    container_name: redis-cli
+    command: ["sleep", "infinity"]
+    networks:
+      redelocal:
+        ipv4_address: 172.28.56.40
+    depends_on:
+      redis-master:
+        condition: service_healthy
+      redis-replica:
+        condition: service_healthy
+      sentinel-1:
+        condition: service_healthy
+      sentinel-2:
+        condition: service_healthy
+      sentinel-3:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -h redis-master ping | grep PONG && redis-cli -h sentinel-1 -p 26379 ping | grep PONG"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+      start_period: 8s

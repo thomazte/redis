@@ -59,6 +59,17 @@ cd ~/Documentos/projetos/academicos/redis
 Mais rápido: `PAUSA=3 ./scripts/demo-ao-vivo.sh`  
 Passo a passo no Enter: `PAUSA=enter ./scripts/demo-ao-vivo.sh`
 
+## Site da apresentação
+
+Slides em tela cheia, GSAP no scroll, **sem barra de rolagem visível**. Na pasta do projeto:
+
+```bash
+cd ~/Documentos/projetos/academicos/redis/site
+python3 -m http.server 8765
+```
+
+Abra [http://127.0.0.1:8765](http://127.0.0.1:8765). Role a roda ou use ↑ ↓. Os pontos à direita saltam de seção.
+
 
 ## Subir o laboratório
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Abre o laboratório de forma clara: sobe o Redis e 4 janelas
-# (cliente + 3 Sentinels). Rode FORA do Cursor, no terminal do Ubuntu:
+# (cliente + 3 Sentinels). Rode no terminal do Ubuntu:
 #
 #   cd ~/Documentos/projetos/academicos/redis
 #   ./scripts/apresentacao.sh

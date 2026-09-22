@@ -19,7 +19,7 @@ cat <<EOF
 
 Pronto. O grupo docker só vale depois de uma sessão nova.
 
-1. Feche os programas (Cursor, terminais).
+1. Feche os terminais.
 2. No Ubuntu: clique no usuário (canto superior direito) → Sair / Log out.
 3. Entre de novo.
 4. Abra um terminal e rode:

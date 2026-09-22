@@ -87,7 +87,7 @@ sudo docker compose exec redis-cli redis-cli -h sentinel-1 -p 26379 SENTINEL get
 
 ## Demo em três terminais
 
-### Fora do Cursor (terminal do Ubuntu)
+### No terminal do Ubuntu
 
 1. `Ctrl+Alt+T` abre o primeiro terminal.
 2. `Ctrl+Shift+N` abre outra **janela** (melhor na apresentação, lado a lado). Ou `Ctrl+Shift+T` para outra **aba**.
@@ -141,7 +141,7 @@ sudo docker compose down -v
 
 ### Sentinels e cliente em terminais separados
 
-Um comando só (terminal do Ubuntu, **fora do Cursor**):
+Um comando só no terminal:
 
 ```bash
 cd ~/Documentos/projetos/academicos/redis
@@ -183,30 +183,6 @@ Para ver o log de cada Sentinel (em vez do `redis-cli`):
 ./scripts/logs-sentinel.sh 3
 ```
 
-### No Cursor
-
-Ícone de dividir o terminal, depois `+` para o terceiro. Os mesmos três comandos da tabela abaixo.
-
-| Terminal | Comando | O que mostra |
-|---|---|---|
-| 1 | `./scripts/cli.sh master` | escrita no master |
-| 2 | `./scripts/cli.sh replica-monitor` | cópia chegando na réplica |
-| 3 | `./scripts/watch-sentinel.sh` | quem o Sentinel aponta como master |
-
-No terminal 1: `SET nome Thomaz`. No 2 o `SET` aparece; no 3 continua `redis-master`.
-
-Para o failover, no terminal 3 (ou num quarto painel) o log mostra `+sdown` / `+switch-master`:
-
-```bash
-./scripts/logs-sentinel.sh
-```
-
-Derrube o master em qualquer terminal livre:
-
-```bash
-sudo docker stop redis-master
-```
-
 O painel do Sentinel passa a mostrar `redis-replica`. Depois:
 
 ```bash
@@ -222,7 +198,7 @@ sudo docker start redis-master
 INFO replication
 ```
 
-Deve mostrar `role:slave`. Prompt interativo do Sentinel (comandos na mão): `./scripts/cli.sh sentinel`.
+Deve mostrar `role:slave`. Prompt interativo do Sentinel: `./scripts/cli.sh sentinel`.
 
 Para voltar à topologia inicial:
 

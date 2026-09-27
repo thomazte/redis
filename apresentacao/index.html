@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Replicação Master-Replica com Redis</title>
+  <meta name="description" content="Apresentação da prática de Sistemas Distribuídos: cluster Redis master-replica no VirtualBox.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23c4322a'/%3E%3Ccircle cx='11' cy='16' r='3' fill='white'/%3E%3Ccircle cx='21' cy='16' r='3' fill='white'/%3E%3C/svg%3E">
+  <script>document.documentElement.classList.add("js");</script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#capa">
+      <span class="brand-mark" aria-hidden="true"></span>
+      Redis · Master-Replica
+    </a>
+    <p class="topbar-section" aria-live="polite">
+      <span id="section-index">01</span>
+      <span id="section-label">Início</span>
+    </p>
+    <div class="progress" aria-hidden="true"><span class="progress-bar"></span></div>
+  </header>
+
+  <main>
+    <section id="capa" data-label="Início" class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <p class="kicker prefade">Sistemas Distribuídos</p>
+          <h1 class="prefade">Replicação Master-Replica com Redis</h1>
+          <p class="lead prefade">Duas máquinas virtuais, uma escrita e várias leituras. A prática tira o Redis do ponto único de falha.</p>
+          <p class="meta prefade">
+            <span>Thomaz Arthur</span>
+            <span>Lucas Gabriel</span>
+            <span>Ubuntu Server 26.04 · VirtualBox</span>
+          </p>
+        </div>
+        <ul class="facts prefade">
+          <li><strong>2</strong><span>nós na rede interna</span></li>
+          <li><strong>6379</strong><span>porta do Redis</span></li>
+          <li><strong>192.168.50.0/24</strong><span>rede redis-net</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="problema" data-label="O problema">
+      <div class="wrap">
+        <p class="kicker">02</p>
+        <h2 class="rise">Um Redis só não segura o sistema</h2>
+        <p class="lead rise">Com uma instância central, a queda da máquina derruba leitura e escrita. A vazão também fica presa ao hardware de um único host.</p>
+        <div class="split">
+          <article class="card">
+            <h3>O gargalo</h3>
+            <p>Ponto único de falha. Tudo passa pelo mesmo processo: consultas, gravações e a disponibilidade do serviço.</p>
+          </article>
+          <article class="card">
+            <h3>O que a prática faz</h3>
+            <p>Um master recebe as escritas e replica em segundo plano. A réplica atende leituras e pode assumir o papel de master.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="arquitetura" data-label="Arquitetura">
+      <div class="wrap">
+        <p class="kicker">03</p>
+        <h2 class="rise">Quem escreve e quem lê</h2>
+        <p class="lead rise">Topologia primário-secundário. A replicação é assíncrona: o master confirma a escrita e segue, sem esperar a réplica.</p>
+        <div class="cluster rise">
+          <article class="node node-master">
+            <p class="role">Master</p>
+            <h3>REDIS01</h3>
+            <p class="ip">192.168.50.10</p>
+            <ul>
+              <li>Processa todo <code>SET</code></li>
+              <li>Mantém o backlog de replicação</li>
+              <li>Envia o fluxo para a réplica</li>
+            </ul>
+          </article>
+          <div class="bridge" aria-hidden="true">
+            <span class="bridge-label">assíncrono</span>
+            <div class="track"><span class="packet"></span></div>
+          </div>
+          <article class="node node-replica">
+            <p class="role">Replica</p>
+            <h3>REDIS02</h3>
+            <p class="ip">192.168.50.20</p>
+            <ul>
+              <li>Modo somente leitura</li>
+              <li>Responde <code>GET</code></li>
+              <li>Pode ser promovida no failover</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="replicacao" data-label="Replicação">
+      <div class="wrap">
+        <p class="kicker">04</p>
+        <h2 class="rise">Full sync, PSYNC e o CAP</h2>
+        <div class="split">
+          <article class="card">
+            <p class="role">Primeira conexão</p>
+            <h3>Full sync</h3>
+            <p>O master gera um snapshot RDB da memória e envia pelo socket. A réplica monta o estado base a partir desse arquivo.</p>
+          </article>
+          <article class="card">
+            <p class="role">Rede oscilou</p>
+            <h3>PSYNC</h3>
+            <p>A réplica reconecta informando o offset. O master reenvia só os bytes que ficaram no backlog, sem um RDB novo.</p>
+          </article>
+        </div>
+        <div class="cap rise">
+          <article>
+            <h3>C</h3>
+            <p>Consistência eventual. A escrita volta ao cliente antes de chegar na réplica.</p>
+          </article>
+          <article class="cap-on">
+            <h3>A</h3>
+            <p>Disponibilidade. O master não bloqueia novas requisições enquanto replica.</p>
+          </article>
+          <article class="cap-on">
+            <h3>P</h3>
+            <p>Partição. Uma queda breve de rede não exige sincronizar o banco inteiro de novo.</p>
+          </article>
+        </div>
+        <p class="note rise">Essa escolha deixa uma janela de <em>replication lag</em>. Se o master cair antes de esvaziar o buffer, o que ainda não foi enviado pode se perder no failover.</p>
+      </div>
+    </section>
+
+    <section id="rede" data-label="Rede">
+      <div class="wrap">
+        <p class="kicker">05</p>
+        <h2 class="rise">Duas placas em cada VM</h2>
+        <p class="lead rise">O tráfego do cluster fica isolado do hospedeiro. A internet só serve para instalar pacote.</p>
+        <div class="split">
+          <article class="card">
+            <p class="role">Adaptador 1 · enp0s3</p>
+            <h3>NAT</h3>
+            <p>DHCP para sair à internet e usar o <code>apt</code>.</p>
+          </article>
+          <article class="card">
+            <p class="role">Adaptador 2 · enp0s8</p>
+            <h3>Rede interna redis-net</h3>
+            <p>IP fixo. É por aqui que o master e a réplica se enxergam.</p>
+          </article>
+        </div>
+        <div class="table-wrap rise">
+          <table>
+            <thead>
+              <tr>
+                <th>Máquina</th>
+                <th>Função</th>
+                <th>IP</th>
+                <th>Interface</th>
+                <th>Porta</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>REDIS01</td>
+                <td>Master</td>
+                <td>192.168.50.10/24</td>
+                <td>enp0s8</td>
+                <td>6379</td>
+              </tr>
+              <tr>
+                <td>REDIS02</td>
+                <td>Replica</td>
+                <td>192.168.50.20/24</td>
+                <td>enp0s8</td>
+                <td>6379</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="configuracao" data-label="Configuração">
+      <div class="wrap">
+        <p class="kicker">06</p>
+        <h2 class="rise">O que foi configurado</h2>
+        <p class="lead rise">IP estático no Netplan, bind do Redis no endereço da rede interna e a réplica apontando para o master.</p>
+        <div class="configs">
+          <article class="card">
+            <h3>Netplan · REDIS01</h3>
+            <p class="file">/etc/netplan/00-installer-config.yaml</p>
+            <pre class="snippet"><code>network:
+  version: 2
+  ethernets:
+    enp0s3:
+      dhcp4: true
+    enp0s8:
+      addresses: [192.168.50.10/24]</code></pre>
+            <p class="apply">Aplicar com <code>sudo netplan apply</code>. Na réplica, o endereço é <code>192.168.50.20/24</code>.</p>
+          </article>
+          <article class="card">
+            <h3>Redis · master</h3>
+            <p class="file">/etc/redis/redis.conf</p>
+            <pre class="snippet"><code>bind 127.0.0.1 -::1 192.168.50.10
+protected-mode no</code></pre>
+            <p class="apply">Depois: <code>sudo systemctl restart redis-server</code>. Na réplica, o bind usa <code>192.168.50.20</code>.</p>
+          </article>
+          <article class="card">
+            <h3>Ativar a réplica</h3>
+            <p class="file">REDIS02</p>
+            <pre class="snippet"><code>redis-cli replicaof 192.168.50.10 6379
+redis-cli config rewrite</code></pre>
+            <p class="apply">O <code>config rewrite</code> grava o <code>replicaof</code> no arquivo para sobreviver ao reinício.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="validacao" data-label="Validação">
+      <div class="wrap">
+        <p class="kicker">07</p>
+        <h2 class="rise">Três testes no cluster</h2>
+        <div class="scenarios">
+          <article class="scenario card">
+            <div>
+              <p class="role">Cenário 1</p>
+              <h3>Escrita, leitura e bloqueio</h3>
+              <p>A chave gravada no master aparece na réplica. A tentativa de escrever na réplica é recusada.</p>
+            </div>
+            <pre class="snippet term"><code><span class="term-line"><span class="cmd">redis-cli -h 192.168.50.10 set turma "Sistemas Distribuidos"</span></span>
+<span class="term-line ok">OK</span>
+<span class="term-line"><span class="cmd">redis-cli -h 192.168.50.20 get turma</span></span>
+<span class="term-line ok">"Sistemas Distribuidos"</span>
+<span class="term-line"><span class="cmd">redis-cli -h 192.168.50.20 set teste 123</span></span>
+<span class="term-line err">(error) READONLY You can't write against a read only replica.</span></code></pre>
+          </article>
+          <article class="scenario card">
+            <div>
+              <p class="role">Cenário 2</p>
+              <h3>Queda do master</h3>
+              <p>O serviço do primário é parado. A réplica percebe o link cair e mantém os dados que já estavam em memória.</p>
+            </div>
+            <pre class="snippet term"><code><span class="term-line"><span class="cmd">sudo systemctl stop redis-server</span></span>
+<span class="term-line"><span class="cmd">redis-cli info replication</span></span>
+<span class="term-line err">master_link_status:down</span></code></pre>
+          </article>
+          <article class="scenario card">
+            <div>
+              <p class="role">Cenário 3</p>
+              <h3>Failover manual</h3>
+              <p>A réplica é desvinculada e passa a aceitar escrita. O cluster continua operando sem o master original.</p>
+            </div>
+            <pre class="snippet term"><code><span class="term-line"><span class="cmd">redis-cli replicaof no one</span></span>
+<span class="term-line"><span class="cmd">redis-cli info replication</span></span>
+<span class="term-line ok">role:master</span>
+<span class="term-line"><span class="cmd">redis-cli set status "Recuperado com sucesso"</span></span>
+<span class="term-line ok">"Recuperado com sucesso"</span></code></pre>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="script" data-label="Script">
+      <div class="wrap script-grid">
+        <div>
+          <p class="kicker">08</p>
+          <h2 class="rise">A mesma prova, em Python</h2>
+          <p class="lead rise">O script conecta nos dois IPs com a biblioteca <code>python3-redis</code>, espera a réplica e trata o erro de escrita.</p>
+          <p class="note rise">No Ubuntu 26.04 o <code>pip install</code> global é bloqueado pelo PEP 668. O pacote usado foi <code>sudo apt install -y python3-redis</code>.</p>
+        </div>
+        <pre class="snippet rise"><code><span class="cmt"># teste_cluster.py</span>
+master = redis.Redis(host=<span class="str">"192.168.50.10"</span>, port=6379,
+                     decode_responses=True, socket_timeout=3)
+replica = redis.Redis(host=<span class="str">"192.168.50.20"</span>, port=6379,
+                      decode_responses=True, socket_timeout=3)
+
+master.set(<span class="str">"disciplina"</span>, <span class="str">"Sistemas Distribuidos"</span>)
+time.sleep(0.5)
+valor = replica.get(<span class="str">"disciplina"</span>)
+
+<span class="kw">try</span>:
+    replica.set(<span class="str">"tentativa"</span>, <span class="str">"erro"</span>)
+<span class="kw">except</span> redis.exceptions.ReadOnlyError:
+    print(<span class="str">"[Réplica] Escrita bloqueada"</span>)</code></pre>
+      </div>
+    </section>
+
+    <section id="problemas" data-label="Problemas">
+      <div class="wrap">
+        <p class="kicker">09</p>
+        <h2 class="rise">O que quebrou no laboratório</h2>
+        <ol class="issues">
+          <li class="card">
+            <h3>YAML do Netplan</h3>
+            <p><strong>Problema.</strong> <code>etwork:</code> e a indentação de <code>addresses</code> impediram o IP de subir.</p>
+            <p><strong>Solução.</strong> Dois espaços por nível e a forma curta <code>addresses: [192.168.50.10/24]</code>.</p>
+          </li>
+          <li class="card">
+            <h3>Nome errado no systemd</h3>
+            <p><strong>Problema.</strong> <code>systemctl restart REDIS01</code> devolveu <em>Unit REDIS01.service not found</em>.</p>
+            <p><strong>Solução.</strong> O serviço do pacote é <code>sudo systemctl restart redis-server</code>.</p>
+          </li>
+          <li class="card">
+            <h3>Hostname depois do clone</h3>
+            <p><strong>Problema.</strong> A VM clonada continuou como REDIS01. O cloud-init desfazia a troca no reboot.</p>
+            <p><strong>Solução.</strong> <code>hostnamectl set-hostname REDIS02</code> e <code>preserve_hostname: true</code> em <code>/etc/cloud/cloud.cfg</code>.</p>
+          </li>
+          <li class="card">
+            <h3>VMs sem se enxergar</h3>
+            <p><strong>Problema.</strong> <code>ping</code> com <em>Destination Host Unreachable</em> e <code>master_link_status:down</code>.</p>
+            <p><strong>Solução.</strong> Subir as duas máquinas e rodar <code>netplan apply</code> na <code>enp0s8</code>. A perda ficou em 0%.</p>
+          </li>
+          <li class="card">
+            <h3>pip bloqueado</h3>
+            <p><strong>Problema.</strong> <code>pip install redis</code> parou em <em>externally-managed-environment</em>.</p>
+            <p><strong>Solução.</strong> <code>sudo apt install -y python3-redis</code>.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="fechamento" data-label="Resultado" class="closing">
+      <div class="wrap">
+        <p class="kicker">10</p>
+        <h2 class="rise">O que a prática confirmou</h2>
+        <div class="split">
+          <article class="card">
+            <h3>Réplica acompanha o master</h3>
+            <p><code>SET</code> em 192.168.50.10, <code>GET</code> em 192.168.50.20, mesmo valor.</p>
+          </article>
+          <article class="card">
+            <h3>Réplica não aceita escrita</h3>
+            <p>O modo read-only devolve <code>READONLY</code> e evita divergência local.</p>
+          </article>
+          <article class="card">
+            <h3>Failover devolve a escrita</h3>
+            <p><code>replicaof no one</code> muda o papel para master e o nó volta a gravar.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollToPlugin.min.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
